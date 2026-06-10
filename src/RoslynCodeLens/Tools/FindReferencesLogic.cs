@@ -20,7 +20,8 @@ public static class FindReferencesLogic
             targets = [resolved.Symbol];
         }
 
-        return ScanForReferences(loaded, source, targets);
+        var distinctTargets = targets.Distinct<ISymbol>(SymbolEqualityComparer.Default).ToList();
+        return ScanForReferences(loaded, source, distinctTargets);
     }
 
     private static List<SymbolReference> ScanForReferences(
@@ -70,14 +71,12 @@ public static class FindReferencesLogic
 
     private static string ClassifyReferenceNode(SyntaxNode node)
     {
-        var identifier = node as IdentifierNameSyntax
-            ?? node.FirstAncestorOrSelf<IdentifierNameSyntax>();
-        if (identifier != null)
+        if (node.FirstAncestorOrSelf<IdentifierNameSyntax>() is { } identifier)
             return ClassifyReference(identifier);
-
-        if (node is GenericNameSyntax || node.FirstAncestorOrSelf<GenericNameSyntax>() != null)
+        // Reference to a generic type itself (e.g. IKafkaProducer<...>) — FindNode returns
+        // the GenericNameSyntax directly with no inner IdentifierNameSyntax to surface.
+        if (node.FirstAncestorOrSelf<GenericNameSyntax>() is not null)
             return "type_argument";
-
         return "usage";
     }
 
